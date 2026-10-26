@@ -1,4 +1,4 @@
-# Terraform "Hello, World" example
+# Terraform "Create VPC network, its Subnets and Serves under each Subnet" example
 
 This folder contains a "Hello, World" example of a [Terraform](https://www.terraform.io/) file on AWS (Amazon Web Services).
 
