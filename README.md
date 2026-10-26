@@ -1,6 +1,6 @@
-# Terraform "Create VPC network, its Subnets and Serves under each Subnet" example
+# Terraform "Create VPC network, its Subnets and Servers under each Subnet" example
 
-This folder contains a "Hello, World" example of a [Terraform](https://www.terraform.io/) file on AWS (Amazon Web Services).
+This folder contains a "Create VPC, its Subnets and Servers" example of a [Terraform](https://www.terraform.io/) file on AWS (Amazon Web Services).
 
 This Terraform file deploys a single server on AWS (Amazon Web Services) using the shortest script.
 
