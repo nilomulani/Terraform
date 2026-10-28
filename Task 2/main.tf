@@ -57,6 +57,24 @@ resource "aws_instance" "server_a" {
   subnet_id                   = aws_subnet.subnet_a.id
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.sg_for_servers.id]
+  user_data_replace_on_change = true
+  user_data                   = <<-EOF
+    #!/bin/bash
+    apt-get update -y
+    apt-get install -y apache2
+    cat > /var/www/html/index.html <<'HTML'
+    <!doctype html>
+    <html><body>
+      <h1>Hello from Ubuntu!</h1>
+      <svg width="300" height="160" xmlns="http://www.w3.org/2000/svg">
+        <rect width="300" height="160" fill="lightblue"/>
+        <circle cx="230" cy="40" r="22" fill="gold"/>
+        <path d="M0 160 L100 60 L160 120 L210 80 L300 160Z" fill="seagreen"/>
+      </svg>
+    </body></html>
+    HTML
+    systemctl enable --now apache2
+  EOF
 
   tags = {
     Name = "Server-A-subnet-a"
@@ -64,7 +82,7 @@ resource "aws_instance" "server_a" {
   # SERVER-A: WILL IGNORE DRIFT ON THE INSTANCE TYPE
   lifecycle {
     prevent_destroy = false
-    ignore_changes  = [
+    ignore_changes = [
       instance_type,
     ]
   }
@@ -76,6 +94,24 @@ resource "aws_instance" "server_b" {
   subnet_id                   = aws_subnet.subnet_b.id
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.sg_for_servers.id]
+  user_data_replace_on_change = true
+  user_data                   = <<-EOF
+    #!/bin/bash
+    apt-get update -y
+    apt-get install -y apache2
+    cat > /var/www/html/index.html <<'HTML'
+    <!doctype html>
+    <html><body>
+      <h1>Hello from Ubuntu!</h1>
+      <svg width="300" height="160" xmlns="http://www.w3.org/2000/svg">
+        <rect width="300" height="160" fill="lightblue"/>
+        <circle cx="230" cy="40" r="22" fill="gold"/>
+        <path d="M0 160 L100 60 L160 120 L210 80 L300 160Z" fill="seagreen"/>
+      </svg>
+    </body></html>
+    HTML
+    systemctl enable --now apache2
+  EOF
 
   tags = {
     Name = "Server-B-subnet-b"
