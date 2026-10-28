@@ -1,0 +1,241 @@
+I’m reviewing the updated Terraform file now so I can explain each AWS resource in the exact order it is actually being used in your configuration.
+
+Read 
+
+## What each AWS resource is doing in your workflow
+
+Your Terraform is creating a simple public web app setup in AWS. The flow is:
+
+Internet -> ALB -> Target Group -> EC2 Instances
+
+---
+
+### 1) `provider "aws"`
+This tells Terraform which cloud provider to use and which AWS region to deploy in.
+
+- Region used: `ap-south-1`
+
+This means all your AWS resources will be created in Mumbai region.
+
+---
+
+### 2) `aws_vpc.main`
+This creates the Virtual Private Cloud (VPC).
+
+What it does:
+- It creates a private network in AWS
+- Your subnets, EC2 instances, and ALB live inside this VPC
+- CIDR block: `10.0.0.0/16`
+
+This is the main isolated network for your application.
+
+---
+
+### 3) `aws_internet_gateway.main_igw`
+This creates the Internet Gateway.
+
+What it does:
+- Connects your VPC to the public internet
+- Allows inbound and outbound internet traffic for public resources
+
+Without this, the subnets cannot access the internet.
+
+---
+
+### 4) `aws_subnet.subnet_a` and `aws_subnet.subnet_b`
+These create the two subnets.
+
+- `SUBNET-A` in `ap-south-1a`
+- `SUBNET-B` in `ap-south-1b`
+
+What they do:
+- Divide the VPC into smaller network ranges
+- Each subnet is placed in a different Availability Zone
+- EC2 instances are launched in these subnets
+
+Your CIDR ranges:
+- Subnet A: `10.0.1.0/24`
+- Subnet B: `10.0.2.0/24`
+
+---
+
+### 5) `aws_instance.server_a` and `aws_instance.server_b`
+These create the EC2 virtual machines.
+
+What they do:
+- Launch servers inside the subnets
+- Each VM is placed in a different subnet
+- They act as the backend application servers
+
+Important:
+- `vpc_security_group_ids = [aws_security_group.sg_for_servers.id]`
+- This means both EC2 servers are protected by the same security group, which allows only traffic from the ALB.
+
+---
+
+### 6) `aws_route_table.public_route_table`
+This creates the public route table.
+
+What it does:
+- It tells AWS how traffic should flow in the VPC
+- It routes all non-local traffic (`0.0.0.0/0`) to the Internet Gateway
+
+This is what allows internet traffic to reach the public subnets.
+
+---
+
+### 7) `aws_route_table_association.subnet_a_association` and `subnet_b_association`
+These attach the route table to both subnets.
+
+What it does:
+- Makes both subnets public
+- Ensures internet-bound traffic from the subnets goes through the IGW
+
+So the subnets can talk to the internet.
+
+---
+
+### 8) `aws_security_group.sg_for_lb`
+This is the security group for the load balancer.
+
+What it does:
+- Allows inbound HTTP on port 80 from anywhere (`0.0.0.0/0`)
+- Allows outbound traffic
+
+This means:
+- Anyone on the internet can reach the ALB
+- The ALB is public-facing
+
+---
+
+### 9) `aws_lb.main_lb`
+This creates the Application Load Balancer (ALB).
+
+What it does:
+- It sits in front of the EC2 instances
+- It receives requests from the internet
+- It distributes traffic between the EC2 servers
+
+It is attached to:
+- security group: `sg_for_lb`
+- subnets: both subnet A and B
+
+So the ALB is the public front door for your app.
+
+---
+
+### 10) `aws_security_group.sg_for_servers`
+This is the security group for the EC2 servers.
+
+What it does:
+- Allows inbound HTTP on port 80 only from the ALB security group
+- Blocks direct traffic from the internet to the EC2 machines
+
+This is a good practice because:
+- users do not connect directly to EC2
+- they connect to the ALB
+- the ALB forwards to EC2
+
+---
+
+### 11) `aws_lb_target_group.app_tg`
+This creates the target group.
+
+What it does:
+- Groups the backend EC2 instances
+- It is the destination where the ALB sends traffic
+
+Think of it as:
+- a “pool of servers” behind the ALB
+
+The ALB forwards requests to this target group, and the target group forwards to the actual EC2 instances.
+
+---
+
+### 12) `aws_lb_target_group_attachment.server_a_attachment` and `server_b_attachment`
+These attach EC2 instance A and B to the target group.
+
+What they do:
+- Register the EC2 servers with the target group
+- Makes them available to receive traffic from the ALB
+
+So the ALB knows:
+- “these are my backend machines”
+
+---
+
+### 13) `aws_lb_listener.http`
+This creates the listener on the ALB.
+
+What it does:
+- listens on port `80`
+- receives incoming HTTP requests
+- forwards them to the target group
+
+This is the actual forwarding rule.
+
+---
+
+## End-to-end request flow
+
+This is the real traffic path:
+
+Internet user
+-> ALB (`aws_lb.main_lb`)
+-> Listener (`aws_lb_listener.http`)
+-> Target Group (`aws_lb_target_group.app_tg`)
+-> EC2 Instance A or B
+-> Web page response goes back
+
+---
+
+## Very important issue in your current file
+
+There is one mismatch in the listener:
+
+- ALB resource is named `aws_lb.main_lb`
+- but the listener uses `aws_lb.app_alb.arn`
+
+This is wrong and will cause an error.
+
+It should be:
+
+```hcl
+load_balancer_arn = aws_lb.main_lb.arn
+```
+
+not:
+
+```hcl
+load_balancer_arn = aws_lb.app_alb.arn
+```
+
+Because `aws_lb.app_alb` does not exist in your file.
+
+---
+
+## In simple words
+
+Your setup is doing this:
+
+- VPC creates the private network
+- Internet Gateway connects the VPC to internet
+- Subnets create public network spaces
+- Route table sends internet traffic to the IGW
+- EC2 instances are the web servers
+- ALB receives internet requests
+- Target group keeps a list of web servers
+- Listener sends traffic from ALB to EC2 servers
+
+---
+
+## One-line summary
+
+This architecture is a classic AWS public web app setup:
+- VPC + subnets + route table = networking
+- EC2 = backend app servers
+- ALB + listener + target group = public traffic distribution
+
+If you want, I can next give you:
+1. a very simple flow diagram for your exact updated Terraform, or
+2. the corrected full working version of `main.tf` without the mismatch.
